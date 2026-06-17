@@ -10,10 +10,22 @@ import comfy.utils
 import torch
 from comfy import model_detection, model_management
 
-from nunchaku.utils import check_hardware_compatibility, get_gpu_memory, get_precision_from_quantization_config
+try:
+    from nunchaku.utils import check_hardware_compatibility, get_gpu_memory, get_precision_from_quantization_config
 
-from ...model_configs.qwenimage import NunchakuQwenImage
-from ...model_patcher.common import NunchakuModelPatcher
+    _NUNCHAKU_IMPORT_ERROR = None
+except (ImportError, ModuleNotFoundError) as exc:
+    _NUNCHAKU_IMPORT_ERROR = exc
+
+    def check_hardware_compatibility(*args, **kwargs):
+        return None
+
+    def get_gpu_memory():
+        return 0
+
+    def get_precision_from_quantization_config(*args, **kwargs):
+        return "int4"
+
 from ..utils import get_filename_list, get_full_path_or_raise
 
 # Get log level from environment variable (default to INFO)
@@ -27,6 +39,15 @@ logger = logging.getLogger(__name__)
 def load_diffusion_model_state_dict(
     sd: dict[str, torch.Tensor], metadata: dict[str, str] = {}, model_options: dict = {}
 ):
+    try:
+        from ...model_configs.qwenimage import NunchakuQwenImage
+        from ...model_patcher.common import NunchakuModelPatcher
+    except (ImportError, ModuleNotFoundError) as exc:
+        raise RuntimeError(
+            "NunchakuQwenImage backend is unavailable in CPU compatibility mode. "
+            "Run on a GPU ComfyUI instance with nunchaku installed."
+        ) from exc
+
     """
     Load a Nunchaku-quantized Qwen-Image diffusion model.
 
@@ -195,6 +216,12 @@ class NunchakuQwenImageDiTLoader:
         tuple
             A tuple containing the loaded and patched model.
         """
+        if _NUNCHAKU_IMPORT_ERROR is not None:
+            raise RuntimeError(
+                "NunchakuQwenImageDiTLoader is running in CPU frontend compatibility mode. "
+                "Run this workflow on a GPU ComfyUI instance with nunchaku installed."
+            ) from _NUNCHAKU_IMPORT_ERROR
+
         model_path = get_full_path_or_raise("diffusion_models", model_name)
         sd, metadata = comfy.utils.load_torch_file(model_path, return_metadata=True)
 

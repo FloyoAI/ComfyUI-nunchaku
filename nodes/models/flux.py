@@ -13,9 +13,19 @@ import comfy.model_patcher
 import torch
 from comfy.supported_models import Flux, FluxSchnell
 
-from nunchaku import NunchakuFluxTransformer2dModel
-from nunchaku.caching.diffusers_adapters.flux import apply_cache_on_transformer
-from nunchaku.utils import is_turing
+try:
+    from nunchaku import NunchakuFluxTransformer2dModel
+    from nunchaku.caching.diffusers_adapters.flux import apply_cache_on_transformer
+    from nunchaku.utils import is_turing
+
+    _NUNCHAKU_IMPORT_ERROR = None
+except (ImportError, ModuleNotFoundError) as exc:
+    NunchakuFluxTransformer2dModel = None
+    apply_cache_on_transformer = None
+    _NUNCHAKU_IMPORT_ERROR = exc
+
+    def is_turing(*args, **kwargs):
+        return False
 
 from ...wrappers.flux import ComfyFluxWrapper
 from ..utils import get_filename_list, get_full_path_or_raise
@@ -81,6 +91,7 @@ class NunchakuFluxDiTLoader:
         safetensor_files = get_filename_list("diffusion_models")
 
         ngpus = torch.cuda.device_count()
+        device_id_max = max(0, ngpus - 1)
 
         all_turing = True
         for i in range(torch.cuda.device_count()):
@@ -137,7 +148,7 @@ class NunchakuFluxDiTLoader:
                     {
                         "default": 0,
                         "min": 0,
-                        "max": ngpus - 1,
+                        "max": device_id_max,
                         "step": 1,
                         "display": "number",
                         "lazy": True,
@@ -205,6 +216,12 @@ class NunchakuFluxDiTLoader:
         tuple
             A tuple containing the loaded and patched model.
         """
+        if _NUNCHAKU_IMPORT_ERROR is not None:
+            raise RuntimeError(
+                "NunchakuFluxDiTLoader is running in CPU frontend compatibility mode. "
+                "Run this workflow on a GPU ComfyUI instance with nunchaku installed."
+            ) from _NUNCHAKU_IMPORT_ERROR
+
         device = torch.device(f"cuda:{device_id}")
 
         model_path = get_full_path_or_raise("diffusion_models", model_path)

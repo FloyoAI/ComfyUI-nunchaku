@@ -7,7 +7,13 @@ from pathlib import Path
 
 from safetensors.torch import save_file
 
-from nunchaku.merge_safetensors import merge_safetensors
+try:
+    from nunchaku.merge_safetensors import merge_safetensors
+
+    _NUNCHAKU_IMPORT_ERROR = None
+except (ImportError, ModuleNotFoundError) as exc:
+    merge_safetensors = None
+    _NUNCHAKU_IMPORT_ERROR = exc
 
 from ..utils import folder_paths
 
@@ -82,6 +88,12 @@ class NunchakuModelMerger:
         tuple of str
             Status message indicating the result of the merge operation.
         """
+        if _NUNCHAKU_IMPORT_ERROR is not None:
+            raise RuntimeError(
+                "NunchakuModelMerger is running in CPU frontend compatibility mode. "
+                "Run this workflow on a GPU ComfyUI instance with nunchaku installed."
+            ) from _NUNCHAKU_IMPORT_ERROR
+
         prefixes = folder_paths.folder_names_and_paths["diffusion_models"][0]
         model_path = None
         for prefix in prefixes:

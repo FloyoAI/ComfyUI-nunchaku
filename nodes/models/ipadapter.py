@@ -11,8 +11,15 @@ import torch
 from diffusers import FluxPipeline
 from torchvision import transforms
 
-from nunchaku.models.ip_adapter.diffusers_adapters import apply_IPA_on_pipe
-from nunchaku.models.ip_adapter.utils import undo_all_mods_on_transformer
+try:
+    from nunchaku.models.ip_adapter.diffusers_adapters import apply_IPA_on_pipe
+    from nunchaku.models.ip_adapter.utils import undo_all_mods_on_transformer
+
+    _NUNCHAKU_IMPORT_ERROR = None
+except (ImportError, ModuleNotFoundError) as exc:
+    apply_IPA_on_pipe = None
+    undo_all_mods_on_transformer = None
+    _NUNCHAKU_IMPORT_ERROR = exc
 
 from .utils import set_extra_config_model_path
 
@@ -135,6 +142,12 @@ class NunchakuIPAdapterLoader:
         tuple
             The original model and the loaded IP-Adapter pipeline.
         """
+        if _NUNCHAKU_IMPORT_ERROR is not None:
+            raise RuntimeError(
+                "NunchakuIPAdapterLoader is running in CPU frontend compatibility mode. "
+                "Run this workflow on a GPU ComfyUI instance with nunchaku installed."
+            ) from _NUNCHAKU_IMPORT_ERROR
+
         device = model.model.diffusion_model.model.device
         pipeline = IPAFluxPipelineWrapper.from_pretrained(
             "black-forest-labs/FLUX.1-dev", transformer=model.model.diffusion_model.model, torch_dtype=torch.bfloat16
@@ -203,6 +216,12 @@ class NunchakuFluxIPAdapterApply:
         tuple
             The modified model.
         """
+        if _NUNCHAKU_IMPORT_ERROR is not None:
+            raise RuntimeError(
+                "NunchakuFluxIPAdapterApply is running in CPU frontend compatibility mode. "
+                "Run this workflow on a GPU ComfyUI instance with nunchaku installed."
+            ) from _NUNCHAKU_IMPORT_ERROR
+
         to_pil_transformer = transforms.ToPILImage()
         image_tensor_chw = image[0].permute(2, 0, 1)
         pil_image = to_pil_transformer(image_tensor_chw)

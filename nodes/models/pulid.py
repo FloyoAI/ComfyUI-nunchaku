@@ -16,8 +16,15 @@ import comfy
 import numpy as np
 import torch
 
-from nunchaku.models.pulid.pulid_forward import pulid_forward
-from nunchaku.pipeline.pipeline_flux_pulid import PuLIDPipeline
+try:
+    from nunchaku.models.pulid.pulid_forward import pulid_forward
+    from nunchaku.pipeline.pipeline_flux_pulid import PuLIDPipeline
+
+    _NUNCHAKU_IMPORT_ERROR = None
+except (ImportError, ModuleNotFoundError) as exc:
+    pulid_forward = None
+    PuLIDPipeline = None
+    _NUNCHAKU_IMPORT_ERROR = exc
 
 from ...wrappers.flux import ComfyFluxWrapper, copy_with_ctx
 from ..utils import folder_paths, get_filename_list, get_full_path_or_raise
@@ -118,6 +125,12 @@ class NunchakuFluxPuLIDApplyV2:
         NotImplementedError
             If attn_mask is provided.
         """
+        if _NUNCHAKU_IMPORT_ERROR is not None:
+            raise RuntimeError(
+                "NunchakuFluxPuLIDApplyV2 is running in CPU frontend compatibility mode. "
+                "Run this workflow on a GPU ComfyUI instance with nunchaku installed."
+            ) from _NUNCHAKU_IMPORT_ERROR
+
         all_embeddings = []
         for i in range(image.shape[0]):
             single_image = image[i : i + 1].squeeze().cpu().numpy() * 255.0
@@ -203,6 +216,12 @@ class NunchakuPuLIDLoaderV2:
         tuple
             (model, pulid_pipeline)
         """
+        if _NUNCHAKU_IMPORT_ERROR is not None:
+            raise RuntimeError(
+                "NunchakuPuLIDLoaderV2 is running in CPU frontend compatibility mode. "
+                "Run this workflow on a GPU ComfyUI instance with nunchaku installed."
+            ) from _NUNCHAKU_IMPORT_ERROR
+
         model_wrapper = model.model.diffusion_model
         assert isinstance(model_wrapper, ComfyFluxWrapper)
         transformer = model_wrapper.model
@@ -308,6 +327,12 @@ class NunchakuPulidApply:
         tuple
             The updated model with PuLID applied.
         """
+        if _NUNCHAKU_IMPORT_ERROR is not None:
+            raise RuntimeError(
+                "NunchakuPulidApply is running in CPU frontend compatibility mode. "
+                "Run this workflow on a GPU ComfyUI instance with nunchaku installed."
+            ) from _NUNCHAKU_IMPORT_ERROR
+
         logger.warning(
             'This node is deprecated and will be removed in December 2025. Directly use "Nunchaku FLUX PuLID Apply V2" instead.'
         )
@@ -389,6 +414,12 @@ class NunchakuPulidLoader:
         tuple
             The input model and the loaded PuLID pipeline.
         """
+        if _NUNCHAKU_IMPORT_ERROR is not None:
+            raise RuntimeError(
+                "NunchakuPulidLoader is running in CPU frontend compatibility mode. "
+                "Run this workflow on a GPU ComfyUI instance with nunchaku installed."
+            ) from _NUNCHAKU_IMPORT_ERROR
+
         logger.warning(
             'This node is deprecated and will be removed in December 2025. Directly use "Nunchaku PuLID Loader V22 instead.'
         )

@@ -9,11 +9,29 @@ import comfy.utils
 import torch
 from comfy import model_detection, model_management
 
-from nunchaku.models.transformers.utils import convert_fp16, patch_scale_key
-from nunchaku.utils import check_hardware_compatibility, get_precision_from_quantization_config, is_turing
+try:
+    from nunchaku.models.transformers.utils import convert_fp16, patch_scale_key
+    from nunchaku.utils import check_hardware_compatibility, get_precision_from_quantization_config, is_turing
 
-from ...model_configs.zimage import NunchakuZImage
-from ...model_patcher.zimage import ZImageModelPatcher
+    _NUNCHAKU_IMPORT_ERROR = None
+except (ImportError, ModuleNotFoundError) as exc:
+    _NUNCHAKU_IMPORT_ERROR = exc
+
+    def convert_fp16(*args, **kwargs):
+        return None
+
+    def patch_scale_key(*args, **kwargs):
+        return None
+
+    def check_hardware_compatibility(*args, **kwargs):
+        return None
+
+    def get_precision_from_quantization_config(*args, **kwargs):
+        return "int4"
+
+    def is_turing(*args, **kwargs):
+        return False
+
 from ..utils import get_filename_list, get_full_path_or_raise
 
 
@@ -99,6 +117,15 @@ def _patch_state_dict(state_dict: dict[str, torch.Tensor]) -> dict[str, torch.Te
 
 
 def _load(sd: dict[str, torch.Tensor], metadata: dict[str, str] = {}):
+    try:
+        from ...model_configs.zimage import NunchakuZImage
+        from ...model_patcher.zimage import ZImageModelPatcher
+    except (ImportError, ModuleNotFoundError) as exc:
+        raise RuntimeError(
+            "NunchakuZImage backend is unavailable in CPU compatibility mode. "
+            "Run on a GPU ComfyUI instance with nunchaku installed."
+        ) from exc
+
     """
     Load a Nunchaku-quantized Z-Image diffusion model.
 
@@ -209,6 +236,12 @@ class NunchakuZImageDiTLoader:
         tuple
             A tuple containing the loaded and patched model.
         """
+        if _NUNCHAKU_IMPORT_ERROR is not None:
+            raise RuntimeError(
+                "NunchakuZImageDiTLoader is running in CPU frontend compatibility mode. "
+                "Run this workflow on a GPU ComfyUI instance with nunchaku installed."
+            ) from _NUNCHAKU_IMPORT_ERROR
+
         model_path = get_full_path_or_raise("diffusion_models", model_name)
         sd, metadata = comfy.utils.load_torch_file(model_path, return_metadata=True)
 

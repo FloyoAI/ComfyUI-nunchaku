@@ -6,7 +6,13 @@ for applying LoRA weights to Nunchaku FLUX models within ComfyUI.
 import logging
 import os
 
-from nunchaku.lora.flux import to_diffusers
+try:
+    from nunchaku.lora.flux import to_diffusers
+
+    _NUNCHAKU_IMPORT_ERROR = None
+except (ImportError, ModuleNotFoundError) as exc:
+    to_diffusers = None
+    _NUNCHAKU_IMPORT_ERROR = exc
 
 from ...wrappers.flux import ComfyFluxWrapper, copy_with_ctx
 from ..utils import get_filename_list, get_full_path_or_raise
@@ -105,6 +111,12 @@ class NunchakuFluxLoraLoader:
         tuple
             A tuple containing the modified diffusion model.
         """
+        if _NUNCHAKU_IMPORT_ERROR is not None:
+            raise RuntimeError(
+                "NunchakuFluxLoraLoader is running in CPU frontend compatibility mode. "
+                "Run this workflow on a GPU ComfyUI instance with nunchaku installed."
+            ) from _NUNCHAKU_IMPORT_ERROR
+
         if abs(lora_strength) < 1e-5:
             return (model,)  # If the strength is too small, return the original model
 
@@ -225,6 +237,12 @@ class NunchakuFluxLoraStack:
         tuple
             A tuple containing the modified diffusion model.
         """
+        if _NUNCHAKU_IMPORT_ERROR is not None:
+            raise RuntimeError(
+                "NunchakuFluxLoraStack is running in CPU frontend compatibility mode. "
+                "Run this workflow on a GPU ComfyUI instance with nunchaku installed."
+            ) from _NUNCHAKU_IMPORT_ERROR
+
         # Collect LoRA information to apply
         loras_to_apply = []
 

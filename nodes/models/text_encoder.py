@@ -15,7 +15,13 @@ import torch
 from comfy.text_encoders.flux import FluxClipModel
 from torch import nn
 
-from nunchaku import NunchakuT5EncoderModel
+try:
+    from nunchaku import NunchakuT5EncoderModel
+
+    _NUNCHAKU_IMPORT_ERROR = None
+except (ImportError, ModuleNotFoundError) as exc:
+    NunchakuT5EncoderModel = None
+    _NUNCHAKU_IMPORT_ERROR = exc
 
 from ..utils import folder_paths, get_filename_list, get_full_path_or_raise
 
@@ -96,6 +102,12 @@ class NunchakuTextEncoderLoaderV2:
         tuple
             Tuple containing the loaded CLIP model.
         """
+        if _NUNCHAKU_IMPORT_ERROR is not None:
+            raise RuntimeError(
+                "NunchakuTextEncoderLoaderV2 is running in CPU frontend compatibility mode. "
+                "Run this workflow on a GPU ComfyUI instance with nunchaku installed."
+            ) from _NUNCHAKU_IMPORT_ERROR
+
         text_encoder_path1 = get_full_path_or_raise("text_encoders", text_encoder1)
         text_encoder_path2 = get_full_path_or_raise("text_encoders", text_encoder2)
         if model_type == "flux.1":
@@ -268,6 +280,9 @@ def nunchaku_flux_clip(nunchaku_t5_path: str | os.PathLike[str], dtype_t5=None) 
     Adapted from:
     https://github.com/comfyanonymous/ComfyUI/blob/158419f3a0017c2ce123484b14b6c527716d6ec8/comfy/text_encoders/flux.py#L63
     """
+
+    if _NUNCHAKU_IMPORT_ERROR is not None:
+        raise RuntimeError("Nunchaku T5 backend is unavailable in CPU compatibility mode.") from _NUNCHAKU_IMPORT_ERROR
 
     class NunchakuFluxClipModel(FluxClipModel):
         """
@@ -516,6 +531,12 @@ class NunchakuTextEncoderLoader:
         UserWarning
             If this deprecated node is used.
         """
+        if _NUNCHAKU_IMPORT_ERROR is not None:
+            raise RuntimeError(
+                "NunchakuTextEncoderLoader is running in CPU frontend compatibility mode. "
+                "Run this workflow on a GPU ComfyUI instance with nunchaku installed."
+            ) from _NUNCHAKU_IMPORT_ERROR
+
         logger.warning(
             "Nunchaku Text Encoder Loader will be deprecated in v0.4. "
             "Please use the Nunchaku Text Encoder Loader V2 node instead."

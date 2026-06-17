@@ -12,10 +12,30 @@ from comfy.model_patcher import ModelPatcher
 from einops import rearrange, repeat
 from torch import nn
 
-from nunchaku import NunchakuFluxTransformer2dModel
-from nunchaku.caching.fbcache import cache_context, create_cache_context
-from nunchaku.lora.flux.compose import compose_lora
-from nunchaku.utils import load_state_dict_in_safetensors
+try:
+    from nunchaku import NunchakuFluxTransformer2dModel
+    from nunchaku.caching.fbcache import cache_context, create_cache_context
+    from nunchaku.lora.flux.compose import compose_lora
+    from nunchaku.utils import load_state_dict_in_safetensors
+
+    _NUNCHAKU_IMPORT_ERROR = None
+except (ImportError, ModuleNotFoundError) as exc:
+    _NUNCHAKU_IMPORT_ERROR = exc
+
+    class NunchakuFluxTransformer2dModel(nn.Module):
+        pass
+
+    def cache_context(*args, **kwargs):
+        raise RuntimeError("Nunchaku backend is unavailable in CPU compatibility mode.") from _NUNCHAKU_IMPORT_ERROR
+
+    def create_cache_context(*args, **kwargs):
+        raise RuntimeError("Nunchaku backend is unavailable in CPU compatibility mode.") from _NUNCHAKU_IMPORT_ERROR
+
+    def compose_lora(*args, **kwargs):
+        raise RuntimeError("Nunchaku backend is unavailable in CPU compatibility mode.") from _NUNCHAKU_IMPORT_ERROR
+
+    def load_state_dict_in_safetensors(*args, **kwargs):
+        raise RuntimeError("Nunchaku backend is unavailable in CPU compatibility mode.") from _NUNCHAKU_IMPORT_ERROR
 
 
 class ComfyFluxWrapper(nn.Module):
@@ -67,6 +87,11 @@ class ComfyFluxWrapper(nn.Module):
         forward_kwargs: dict | None = {},
         ctx_for_copy: dict = {},
     ):
+        if _NUNCHAKU_IMPORT_ERROR is not None:
+            raise RuntimeError(
+                "ComfyFluxWrapper is running in CPU frontend compatibility mode. "
+                "Run this workflow on a GPU ComfyUI instance with nunchaku installed."
+            ) from _NUNCHAKU_IMPORT_ERROR
         super(ComfyFluxWrapper, self).__init__()
         self.model = model
         self.dtype = next(model.parameters()).dtype
